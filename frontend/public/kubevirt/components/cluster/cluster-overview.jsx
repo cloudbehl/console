@@ -91,6 +91,7 @@ const getInventoryData = resources => {
   return {
     inventory,
     loaded: !!inventory,
+    heading: 'Cluster Inventory',
   };
 };
 
