@@ -19,10 +19,11 @@ import { WithResources } from '../../../kubevirt/components/utils/withResources'
 import { LoadingInline } from '../../../kubevirt/components/utils/okdutils';
 import { coFetchJSON } from '../../../co-fetch';
 
-const REFRESH_TIMEOUT = 30000;
-const CEPH_ROOK_NAMESPACE = 'openshift-storage';
+const REFRESH_TIMEOUT = 5000;
+const CEPH_ROOK_NAMESPACE = "openshift-storage";
 
-const CEPH_STATUS = 'ceph_health_status';
+const DATA_RESILIENCY_QUERY = "(ceph_pg_active/ ceph_pg_total)*100";
+const CEPH_STATUS = "ceph_health_status";
 
 const resourceMap = {
   nodes: {
@@ -56,26 +57,70 @@ export class StorageOverview extends React.Component {
     this.state = {
       ocsHealthData: {
         data: {},
-        loaded: false,
+        loaded: false
       },
+      dataResiliencyData: {
+        componentLoaded: true,
+        progressPercentage: 0,
+      }
     };
     this.setHealthData = this._setHealthData.bind(this);
+    this.setDemoDataResiliency = this._setDemoDataResiliency.bind(this);
   }
   _setHealthData(healthy) {
     this.setState({
       ocsHealthData: {
         data: {
-          healthy,
+          healthy
         },
-        loaded: true,
-      },
+        loaded: true
+      }
     });
+  }
+
+  _setDemoDataResiliency(progressPercentage) {
+    this.setState({
+      dataResiliencyData: {
+        progressPercentage,
+        componentLoaded: true,
+      }
+    })
   }
 
   fetchHealth(response, callback) {
     const result = response.data.result;
     result.map(r => callback(r.value[1]));
   }
+
+  demofetchDataResiliency(response,callback) {
+    const result =  response.data.result;
+    result.map(r => callback(Number(r.value[1])));
+  }
+
+  demofetchPrometheusQuery(callback) {
+    const data = {
+      status: "success",
+      data: {
+        resultType: "vector",
+        result: [
+          {
+            metric: {
+              __name__: "ceph_health_status",
+              endpoint: "http-metrics",
+              instance: "10.129.2.10:9283",
+              job: "rook-ceph-mgr",
+              namespace: "openshift-storage",
+              pod: "rook-ceph-mgr-a-548667fb4f-6fv4g",
+              service: "rook-ceph-mgr"
+            },
+            value: [1553701988.855, '50']
+          }
+        ]
+      }
+    };
+    callback(data);
+  }
+
 
   fetchPrometheusQuery(query, callback) {
     const promURL = window.SERVER_FLAGS.prometheusBaseURL;
@@ -102,20 +147,25 @@ export class StorageOverview extends React.Component {
     this.fetchPrometheusQuery(CEPH_STATUS, response =>
       this.fetchHealth(response, this.setHealthData)
     );
+
+    this.demofetchPrometheusQuery(response => 
+        this.demofetchDataResiliency(response, this.setDemoDataResiliency)
+      )
   }
   componentWillUnmount() {
     this._isMounted = false;
   }
 
   render() {
-    const { ocsHealthData } = this.state;
+    const { ocsHealthData, dataResiliencyData } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
           LoadingComponent: LoadingInline,
           ...resources,
-          ocsHealthData,
-        },
+          ...ocsHealthData,
+          ...dataResiliencyData,  
+        }
       };
     };
 
