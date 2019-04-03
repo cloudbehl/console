@@ -3,7 +3,8 @@ import * as _ from "lodash-es";
 import {
   StorageOverview as KubevirtStorageOverview,
   ClusterOverviewContext,
-  getResource
+  getResource,
+  StorageTopConsumersStats
 } from "kubevirt-web-ui-components";
 
 import {
@@ -87,7 +88,7 @@ export class StorageOverview extends React.Component {
         },
         loaded: true
       }
-    })
+    });
   }
 
   fetchHealth(response, callback) {
@@ -95,8 +96,8 @@ export class StorageOverview extends React.Component {
     result.map(r => callback(r.value[1]));
   }
 
-  demofetchDataResiliency(response,callback) {
-    const result =  response.data.result;
+  demofetchDataResiliency(response, callback) {
+    const result = response.data.result;
     return result.map(r => callback(r.value[1]));
   }
 
@@ -124,9 +125,10 @@ export class StorageOverview extends React.Component {
     callback(data);
   }
 
-
   fetchPrometheusQuery(query, callback) {
     const promURL = window.SERVER_FLAGS.prometheusBaseURL;
+    const promURL =
+      "https://prometheus-k8s-openshift-monitoring.apps.storage.devcluster.openshift.com/";
     const url = `${promURL}/api/v1/query?query=${encodeURIComponent(query)}`;
     coFetchJSON(url)
       .then(result => {
@@ -151,9 +153,9 @@ export class StorageOverview extends React.Component {
       this.fetchHealth(response, this.setHealthData)
     );
 
-    this.demofetchPrometheusQuery(response => 
-        this.demofetchDataResiliency(response, this.setDemoDataResiliency)
-      )
+    this.demofetchPrometheusQuery(response =>
+      this.demofetchDataResiliency(response, this.setDemoDataResiliency)
+    );
   }
   componentWillUnmount() {
     this._isMounted = false;
@@ -169,6 +171,7 @@ export class StorageOverview extends React.Component {
           ...resources,
           ocsHealthData,
           dataResiliencyData,
+          StorageTopConsumersStats
         }
       };
     };
