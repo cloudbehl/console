@@ -20,6 +20,8 @@ import {
 import { WithResources } from '../../../kubevirt/components/utils/withResources';
 import { LoadingInline } from '../../../kubevirt/components/utils/okdutils';
 import { coFetchJSON } from '../../../co-fetch';
+import { EventStream } from '../../../components/events';
+import { EventsInnerOverview } from '../../../kubevirt/components/cluster/events-inner-overview';
 
 const REFRESH_TIMEOUT = 30000;
 const CEPH_ROOK_NAMESPACE = 'openshift-storage';
@@ -51,6 +53,8 @@ const resourceMap = {
     resource: getResource(CephClusterModel, { isList: false }),
   },
 };
+
+const OverviewEventStream = () => <EventStream scrollableElementId="events-body" InnerComponent={EventsInnerOverview} overview={true} namespace={"openshift-storage"} />;
 
 export class StorageOverview extends React.Component {
   constructor(props) {
@@ -144,7 +148,11 @@ export class StorageOverview extends React.Component {
           LoadingComponent: LoadingInline,
           ...resources,
           ocsHealthData,
-          ocsAlertData
+          ocsAlertData,
+          eventsData: {
+            Component: OverviewEventStream,
+            loaded: true,
+          },
         }
       };
     };
