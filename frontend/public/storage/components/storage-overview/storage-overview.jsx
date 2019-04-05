@@ -29,6 +29,7 @@ const CEPH_ROOK_NAMESPACE = 'openshift-storage';
 const CEPH_STATUS = 'ceph_health_status';
 const STORAGE_CEPH_CAPACITY_TOTAL_QUERY = "ceph_cluster_total_bytes";
 const STORAGE_CEPH_CAPACITY_USED_QUERY = "ceph_cluster_total_used_bytes";
+const DATA_RESILIENCY_QUERY = "(ceph_pg_active/ ceph_pg_total)*100";
 
 const pollerTimeouts = {};
 const resourceMap = {
@@ -71,11 +72,16 @@ export class StorageOverview extends React.Component {
         data: {},
         loaded: false
       },
+      dataResiliencyData: {
+        componentLoaded: true,
+        progressPercentage: 0,
+      },
       capacityData: {},
     };
     this.setHealthData = this._setHealthData.bind(this);
     this.setAlertData = this._setAlertData.bind(this);
     this.setCapacityData = this._setCapacityData.bind(this);
+    this.setDataResiliency = this._setDataResiliency.bind(this);
   }
   _setHealthData(healthy) {
     this.setState({
@@ -86,6 +92,15 @@ export class StorageOverview extends React.Component {
         loaded: true
       }
     });
+  }
+
+  _setDataResiliency(progressPercentage) {
+    this.setState({
+      dataResiliencyData: {
+        progressPercentage,
+        componentLoaded: true,
+      }
+    })
   }
 
   _setAlertData(alerts) {
@@ -111,6 +126,11 @@ export class StorageOverview extends React.Component {
   fetchHealth(response, callback) {
     const result = response.data.result;
     result.map(r => callback(r.value[1]));
+  }
+
+  fetchDataResiliency(response, callback) {
+    const result = response.data.result;
+    result.map(r => callback(Number(r.value[1])));
   }
 
   fetchPrometheusQuery(query, key, callback) {
@@ -148,6 +168,9 @@ export class StorageOverview extends React.Component {
     this.fetchPrometheusQuery(CEPH_STATUS, "status", response =>
       this.fetchHealth(response, this.setHealthData)
     );
+    this.fetchPrometheusQuery(DATA_RESILIENCY_QUERY, "dataResiliency", response =>
+      this.fetchDataResiliency(response, this.setDataResiliency)
+    )
     this.poll("alerts", this.setAlertData);
 
     this.fetchPrometheusQuery(STORAGE_CEPH_CAPACITY_TOTAL_QUERY, "capacityTotal", response => this.setCapacityData('capacityTotal', response));
@@ -158,7 +181,7 @@ export class StorageOverview extends React.Component {
   }
 
   render() {
-    const { ocsHealthData, ocsAlertData, capacityData } = this.state;
+    const { ocsHealthData, ocsAlertData, capacityData, dataResiliencyData } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
@@ -166,11 +189,13 @@ export class StorageOverview extends React.Component {
           ...resources,
           ocsHealthData,
           ocsAlertData,
+          ...dataResiliencyData,
           ...capacityData,
           eventsData: {
             Component: OverviewEventStream,
             loaded: true,
           },
+
         }
       };
     };
