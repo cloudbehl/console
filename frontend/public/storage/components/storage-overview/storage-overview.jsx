@@ -15,6 +15,7 @@ import {
   PersistentVolumeModel,
   VirtualMachineModel,
   VirtualMachineInstanceMigrationModel,
+  TopConsumersStats
 } from '../../../models';
 
 import { WithResources } from '../../../kubevirt/components/utils/withResources';
@@ -191,6 +192,7 @@ export class StorageOverview extends React.Component {
           ocsAlertData,
           ...dataResiliencyData,
           ...capacityData,
+          // TopConsumersStats,
           eventsData: {
             Component: OverviewEventStream,
             loaded: true,
