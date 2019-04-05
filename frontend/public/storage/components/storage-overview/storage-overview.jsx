@@ -27,6 +27,9 @@ const REFRESH_TIMEOUT = 30000;
 const CEPH_ROOK_NAMESPACE = 'openshift-storage';
 
 const CEPH_STATUS = 'ceph_health_status';
+const STORAGE_CEPH_CAPACITY_TOTAL_QUERY = "ceph_cluster_total_bytes";
+const STORAGE_CEPH_CAPACITY_USED_QUERY = "ceph_cluster_total_used_bytes";
+
 const pollerTimeouts = {};
 const resourceMap = {
   nodes: {
@@ -67,10 +70,12 @@ export class StorageOverview extends React.Component {
       ocsAlertData: {
         data: {},
         loaded: false
-      }
+      },
+      capacityData: {},
     };
     this.setHealthData = this._setHealthData.bind(this);
     this.setAlertData = this._setAlertData.bind(this);
+    this.setCapacityData = this._setCapacityData.bind(this);
   }
   _setHealthData(healthy) {
     this.setState({
@@ -92,6 +97,15 @@ export class StorageOverview extends React.Component {
         loaded: true
       }
     });
+  }
+
+  _setCapacityData(key, response) {
+    this.setState(state => ({
+      capacityData: {
+        ...state.capacityData,
+        [key]: response,
+      },
+    }));
   }
 
   fetchHealth(response, callback) {
@@ -135,13 +149,16 @@ export class StorageOverview extends React.Component {
       this.fetchHealth(response, this.setHealthData)
     );
     this.poll("alerts", this.setAlertData);
+
+    this.fetchPrometheusQuery(STORAGE_CEPH_CAPACITY_TOTAL_QUERY, "capacityTotal", response => this.setCapacityData('capacityTotal', response));
+    this.fetchPrometheusQuery(STORAGE_CEPH_CAPACITY_USED_QUERY, "capacityUsed", response => this.setCapacityData('capacityUsed', response));
   }
   componentWillUnmount() {
     _.each(pollerTimeouts, t => clearTimeout(t));
   }
 
   render() {
-    const { ocsHealthData, ocsAlertData } = this.state;
+    const { ocsHealthData, ocsAlertData, capacityData } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
@@ -149,6 +166,7 @@ export class StorageOverview extends React.Component {
           ...resources,
           ocsHealthData,
           ocsAlertData,
+          ...capacityData,
           eventsData: {
             Component: OverviewEventStream,
             loaded: true,
