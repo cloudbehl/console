@@ -1,9 +1,11 @@
-import React from 'react';
+import React from "react";
+import * as _ from "lodash-es";
+
 import {
   StorageOverview as KubevirtStorageOverview,
   StorageOverviewContext,
-  getResource,
-} from 'kubevirt-web-ui-components';
+  getResource
+} from "kubevirt-web-ui-components";
 
 import {
   CephClusterModel,
@@ -23,7 +25,7 @@ const REFRESH_TIMEOUT = 30000;
 const CEPH_ROOK_NAMESPACE = 'openshift-storage';
 
 const CEPH_STATUS = 'ceph_health_status';
-
+const pollerTimeouts = {};
 const resourceMap = {
   nodes: {
     resource: getResource(NodeModel, { namespaced: false }),
@@ -56,19 +58,35 @@ export class StorageOverview extends React.Component {
     this.state = {
       ocsHealthData: {
         data: {},
-        loaded: false,
+        loaded: false
       },
+      ocsAlertData: {
+        data: {},
+        loaded: false
+      }
     };
     this.setHealthData = this._setHealthData.bind(this);
+    this.setAlertData = this._setAlertData.bind(this);
   }
   _setHealthData(healthy) {
     this.setState({
       ocsHealthData: {
         data: {
-          healthy,
+          healthy
         },
-        loaded: true,
-      },
+        loaded: true
+      }
+    });
+  }
+
+  _setAlertData(alerts) {
+    this.setState({
+      ocsAlertData: {
+        data: {
+          alerts
+        },
+        loaded: true
+      }
     });
   }
 
@@ -77,45 +95,57 @@ export class StorageOverview extends React.Component {
     result.map(r => callback(r.value[1]));
   }
 
-  fetchPrometheusQuery(query, callback) {
-    const promURL = window.SERVER_FLAGS.prometheusBaseURL;
+  fetchPrometheusQuery(query, key, callback) {
+    const promURL =
+      "https://prometheus-k8s-openshift-monitoring.apps.shubh-ceph.devcluster.openshift.com/";
     const url = `${promURL}/api/v1/query?query=${encodeURIComponent(query)}`;
     coFetchJSON(url)
       .then(result => {
-        if (this._isMounted) {
-          callback(result);
-        }
+        callback(result);
       })
       .then(() => {
-        if (this._isMounted) {
-          setTimeout(
-            () => this.fetchPrometheusQuery(query, callback),
-            REFRESH_TIMEOUT
-          );
-        }
+        pollerTimeouts[key] = setTimeout(
+          () => this.fetchPrometheusQuery(query, key, callback),
+          REFRESH_TIMEOUT
+        );
       });
+    coFetchJSON(url);
+  }
+
+  poll(key, dataHandler) {
+    const promURL = window.SERVER_FLAGS.prometheusBaseURL;
+    promURL =
+      "https://prometheus-k8s-openshift-monitoring.apps.shubh-ceph.devcluster.openshift.com/";
+    const url = `${promURL}/api/v1/alerts`;
+    const poller = () => {
+      coFetchJSON(url)
+        .then(({ data }) => dataHandler(data))
+        .catch(e => store.dispatch(UIActions.monitoringErrored(key, e)))
+        .then(() => (pollerTimeouts[key] = setTimeout(poller, REFRESH_TIMEOUT)));
+    };
+    poller();
   }
 
   componentDidMount() {
-    this._isMounted = true;
-
-    this.fetchPrometheusQuery(CEPH_STATUS, response =>
+    this.fetchPrometheusQuery(CEPH_STATUS, "status", response =>
       this.fetchHealth(response, this.setHealthData)
     );
+    this.poll("alerts", this.setAlertData);
   }
   componentWillUnmount() {
-    this._isMounted = false;
+    _.each(pollerTimeouts, t => clearTimeout(t));
   }
 
   render() {
-    const { ocsHealthData } = this.state;
+    const { ocsHealthData, ocsAlertData } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
           LoadingComponent: LoadingInline,
           ...resources,
           ocsHealthData,
-        },
+          ocsAlertData
+        }
       };
     };
 
@@ -127,7 +157,7 @@ export class StorageOverview extends React.Component {
         <StorageOverviewContext.Provider>
           <KubevirtStorageOverview />
         </StorageOverviewContext.Provider>
-      </WithResources>
+      </WithResources >
     );
   }
 }
