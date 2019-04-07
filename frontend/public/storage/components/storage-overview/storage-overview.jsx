@@ -19,6 +19,8 @@ import { coFetchJSON } from '../../../co-fetch';
 const REFRESH_TIMEOUT = 5000;
 
 const CEPH_STATUS = 'ceph_health_status';
+const CEPH_OSD_UP = 'sum(ceph_osd_up)';
+const CEPH_OSD_DOWN = 'count(ceph_osd_ups == 0.0) OR vector(0)';
 
 const resourceMap = {
   nodes: {
@@ -45,8 +47,10 @@ export class StorageOverview extends React.Component {
         data: {},
         loaded: false,
       },
+      disks: {},
     };
     this.setHealthData = this._setHealthData.bind(this);
+    this.setCephDiskData = this._setCephDiskData.bind(this);
   }
 
   _setHealthData(healthy) {
@@ -58,6 +62,15 @@ export class StorageOverview extends React.Component {
         loaded: true,
       },
     });
+  }
+
+  _setCephDiskData(key, response) {
+    this.setState(state => ({
+      disks: {
+        ...state.disks,
+        [key]: response,
+      },
+    }));
   }
 
   fetchPrometheusQuery(query, callback) {
@@ -80,19 +93,22 @@ export class StorageOverview extends React.Component {
   componentDidMount() {
     this._isMounted = true;
     this.fetchPrometheusQuery(CEPH_STATUS, this.setHealthData);
+    this.fetchPrometheusQuery(CEPH_OSD_UP, response => this.setCephDiskData('cephOsdUp', response));
+    this.fetchPrometheusQuery(CEPH_OSD_DOWN, response => this.setCephDiskData('cephOsdDown', response));
   }
   componentWillUnmount() {
     this._isMounted = false;
   }
 
   render() {
-    const { ocsHealthData } = this.state;
+    const { ocsHealthData, disks } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
           LoadingComponent: LoadingInline,
           ...resources,
           ocsHealthData,
+          disks,
         },
       };
     };
