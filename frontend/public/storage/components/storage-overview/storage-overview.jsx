@@ -15,6 +15,8 @@ import {
 import { WithResources } from '../../../kubevirt/components/utils/withResources';
 import { LoadingInline } from '../../../kubevirt/components/utils/okdutils';
 import { coFetchJSON } from '../../../co-fetch';
+import { EventStream } from '../../../components/events';
+import { EventsInnerOverview } from '../../../kubevirt/components/cluster/events-inner-overview';
 
 const REFRESH_TIMEOUT = 5000;
 
@@ -46,6 +48,8 @@ const resourceMap = {
 const getPrometheusBaseURL = () => window.SERVER_FLAGS.prometheusBaseURL;
 
 const getAlertManagerBaseURL = () => window.SERVER_FLAGS.alertManagerBaseURL;
+
+const OverviewEventStream = () => <EventStream scrollableElementId="events-body" InnerComponent={EventsInnerOverview} overview={true} namespace={undefined} />;
 
 export class StorageOverview extends React.Component {
   constructor(props) {
@@ -180,6 +184,10 @@ export class StorageOverview extends React.Component {
           diskStats,
           ...utilizationData,
           alertsResponse,
+          eventsData: {
+            Component: OverviewEventStream,
+            loaded: true,
+          },
         },
       };
     };
