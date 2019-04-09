@@ -32,6 +32,7 @@ const UTILIZATION_THROUGHPUT = '(sum(rate(ceph_pool_wr_bytes[1m]) + rate(ceph_po
 const CEPH_STATUS = 'ceph_health_status';
 const CEPH_PG_ACTIVE = 'ceph_pg_active';
 const CEPH_PG_TOTAL = 'ceph_pg_total';
+const TOP_CONSUMERS_QUERY = '(sort(topk(5, sum((max(kubelet_volume_stats_used_bytes{namespace!=""}) by (namespace, persistentvolumeclaim))* on (namespace,persistentvolumeclaim) group_left(pod) (max(kube_pod_spec_volumes_persistentvolumeclaims_info{namespace!="", pod != ""}) by (namespace, persistentvolumeclaim, pod))) by (namespace))))[360m:1m]';
 
 const resourceMap = {
   nodes: {
@@ -62,6 +63,10 @@ export class StorageOverview extends React.Component {
         data: {},
         loaded: false,
       },
+      topConsumersData: {
+        stats: [],
+        loaded: false,
+      },
       capacityData: {},
       diskStats: {},
       utilizationData: {},
@@ -73,6 +78,7 @@ export class StorageOverview extends React.Component {
     this.setCephDiskStats = this._setCephDiskStats.bind(this);
     this.setUtilizationData = this._setUtilizationData.bind(this);
     this.setDataResiliencyData = this._setDataResiliencyData.bind(this);
+    this.setTopConsumersData = this._setTopConsumersData.bind(this);
   }
 
   _setHealthData(healthy) {
@@ -110,6 +116,16 @@ export class StorageOverview extends React.Component {
         [key]: response,
       },
     }));
+  }
+
+  _setTopConsumersData(response) {
+    const result = _.get(response, 'data.result', []);
+    this.setState({
+      topConsumersData: {
+        stats: result,
+        loaded: true,
+      },
+    });
   }
 
   _setDataResiliencyData(key, response) {
@@ -184,13 +200,15 @@ export class StorageOverview extends React.Component {
 
     this.fetchPrometheusQuery(CEPH_PG_ACTIVE, response => this.setDataResiliencyData('activePgRaw', response));
     this.fetchPrometheusQuery(CEPH_PG_TOTAL, response => this.setDataResiliencyData('totalPgRaw', response));
+    this.fetchPrometheusQuery(TOP_CONSUMERS_QUERY, response => this.setTopConsumersData(response));
   }
+
   componentWillUnmount() {
     this._isMounted = false;
   }
 
   render() {
-    const { ocsHealthData, capacityData, diskStats, utilizationData, alertsResponse, dataResiliencyData } = this.state;
+    const { ocsHealthData, capacityData, diskStats, utilizationData, alertsResponse, dataResiliencyData, topConsumersData } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
@@ -206,6 +224,7 @@ export class StorageOverview extends React.Component {
             loaded: true,
           },
           ...dataResiliencyData,
+          ...topConsumersData,
         },
       };
     };
