@@ -45,6 +45,8 @@ const resourceMap = {
 
 const getPrometheusBaseURL = () => window.SERVER_FLAGS.prometheusBaseURL;
 
+const getAlertManagerBaseURL = () => window.SERVER_FLAGS.alertManagerBaseURL;
+
 export class StorageOverview extends React.Component {
   constructor(props) {
     super(props);
@@ -102,20 +104,52 @@ export class StorageOverview extends React.Component {
   }
 
   fetchPrometheusQuery(query, callback) {
-    const url = `${getPrometheusBaseURL()}/api/v1/query?query=${encodeURIComponent(query)}`;
-    coFetchJSON(url).then(result => {
-      if (this._isMounted) {
-        callback(result);
-      }
-    }).catch(error => {
-      if (this._isMounted) {
-        callback(error);
-      }
-    }).then(() => {
-      if (this._isMounted) {
-        setTimeout(() => this.fetchPrometheusQuery(query, callback), REFRESH_TIMEOUT);
-      }
-    });
+    const url = `${getPrometheusBaseURL()}/api/v1/query?query=${encodeURIComponent(
+      query
+    )}`;
+    coFetchJSON(url)
+      .then(result => {
+        if (this._isMounted) {
+          callback(result);
+        }
+      })
+      .catch(error => {
+        if (this._isMounted) {
+          callback(error);
+        }
+      })
+      .then(() => {
+        if (this._isMounted) {
+          setTimeout(
+            () => this.fetchPrometheusQuery(query, callback),
+            REFRESH_TIMEOUT
+          );
+        }
+      });
+  }
+
+  fetchAlerts() {
+    const url = `${getAlertManagerBaseURL()}/api/v2/alerts`;
+    coFetchJSON(url)
+      .then(alertsResponse => {
+        if (this._isMounted) {
+          this.setState({
+            alertsResponse,
+          });
+        }
+      })
+      .catch(error => {
+        if (this._isMounted) {
+          this.setState({
+            alertsResponse: error,
+          });
+        }
+      })
+      .then(() => {
+        if (this._isMounted) {
+          setTimeout(() => this.fetchAlerts(), REFRESH_TIMEOUT);
+        }
+      });
   }
 
   componentDidMount() {
@@ -128,13 +162,14 @@ export class StorageOverview extends React.Component {
     this.fetchPrometheusQuery(UTILIZATION_IOPS, response => this.setUtilizationData('iopsUtilization', response));
     this.fetchPrometheusQuery(UTILIZATION_LATENCY, response => this.setUtilizationData('latencyUtilization', response));
     this.fetchPrometheusQuery(UTILIZATION_THROUGHPUT, response => this.setUtilizationData('throughputUtilization', response));
+    this.fetchAlerts();
   }
   componentWillUnmount() {
     this._isMounted = false;
   }
 
   render() {
-    const { ocsHealthData, capacityData, diskStats, utilizationData } = this.state;
+    const { ocsHealthData, capacityData, diskStats, utilizationData, alertsResponse } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
@@ -144,6 +179,7 @@ export class StorageOverview extends React.Component {
           ...capacityData,
           diskStats,
           ...utilizationData,
+          alertsResponse,
         },
       };
     };
