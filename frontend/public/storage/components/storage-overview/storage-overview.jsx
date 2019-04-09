@@ -15,6 +15,8 @@ import {
 import { WithResources } from '../../../kubevirt/components/utils/withResources';
 import { LoadingInline } from '../../../kubevirt/components/utils/okdutils';
 import { coFetchJSON } from '../../../co-fetch';
+import { EventStream } from '../../../components/events';
+import { EventsInnerOverview } from '../../../kubevirt/components/cluster/events-inner-overview';
 
 const REFRESH_TIMEOUT = 5000;
 
@@ -23,6 +25,10 @@ const STORAGE_CEPH_CAPACITY_TOTAL_QUERY = 'ceph_cluster_total_bytes';
 const STORAGE_CEPH_CAPACITY_USED_QUERY = 'ceph_cluster_total_used_bytes';
 const CEPH_OSD_UP_QUERY = 'sum(ceph_osd_up)';
 const CEPH_OSD_DOWN_QUERY = 'count(ceph_osd_up == 0.0) OR vector(0)';
+
+const UTILIZATION_IOPS = '(sum(rate(ceph_pool_wr[1m])) + sum(rate(ceph_pool_rd[1m])))[360m:5m]';
+const UTILIZATION_LATENCY = '(quantile(.95,(irate(node_disk_reads_completed_total[1m]) + irate(node_disk_writes_completed_total[1m]) /  (irate(node_disk_reads_completed_total[1m]) + irate(node_disk_writes_completed_total[1m])) + ignoring(ceph_daemon,job) ceph_disk_occupation)))[360m:5m]';
+const UTILIZATION_THROUGHPUT = '(sum(rate(ceph_pool_wr_bytes[1m]) + rate(ceph_pool_rd_bytes[1m])))[360m:5m]';
 
 const resourceMap = {
   nodes: {
@@ -41,6 +47,10 @@ const resourceMap = {
 
 const getPrometheusBaseURL = () => window.SERVER_FLAGS.prometheusBaseURL;
 
+const getAlertManagerBaseURL = () => window.SERVER_FLAGS.alertManagerBaseURL;
+
+const OverviewEventStream = () => <EventStream scrollableElementId="events-body" InnerComponent={EventsInnerOverview} overview={true} namespace={undefined} />;
+
 export class StorageOverview extends React.Component {
   constructor(props) {
     super(props);
@@ -51,10 +61,13 @@ export class StorageOverview extends React.Component {
       },
       capacityData: {},
       diskStats: {},
+      utilizationData: {},
     };
+
     this.setHealthData = this._setHealthData.bind(this);
     this.setCapacityData = this._setCapacityData.bind(this);
     this.setCephDiskStats = this._setCephDiskStats.bind(this);
+    this.setUtilizationData = this._setUtilizationData.bind(this);
   }
 
   _setHealthData(healthy) {
@@ -76,6 +89,14 @@ export class StorageOverview extends React.Component {
       },
     }));
   }
+  _setUtilizationData(key, response) {
+    this.setState(state => ({
+      utilizationData: {
+        ...state.utilizationData,
+        [key]: response,
+      },
+    }));
+  }
 
   _setCephDiskStats(key, response) {
     this.setState(state => ({
@@ -87,20 +108,52 @@ export class StorageOverview extends React.Component {
   }
 
   fetchPrometheusQuery(query, callback) {
-    const url = `${getPrometheusBaseURL()}/api/v1/query?query=${encodeURIComponent(query)}`;
-    coFetchJSON(url).then(result => {
-      if (this._isMounted) {
-        callback(result);
-      }
-    }).catch(error => {
-      if (this._isMounted) {
-        callback(error);
-      }
-    }).then(() => {
-      if (this._isMounted) {
-        setTimeout(() => this.fetchPrometheusQuery(query, callback), REFRESH_TIMEOUT);
-      }
-    });
+    const url = `${getPrometheusBaseURL()}/api/v1/query?query=${encodeURIComponent(
+      query
+    )}`;
+    coFetchJSON(url)
+      .then(result => {
+        if (this._isMounted) {
+          callback(result);
+        }
+      })
+      .catch(error => {
+        if (this._isMounted) {
+          callback(error);
+        }
+      })
+      .then(() => {
+        if (this._isMounted) {
+          setTimeout(
+            () => this.fetchPrometheusQuery(query, callback),
+            REFRESH_TIMEOUT
+          );
+        }
+      });
+  }
+
+  fetchAlerts() {
+    const url = `${getAlertManagerBaseURL()}/api/v2/alerts`;
+    coFetchJSON(url)
+      .then(alertsResponse => {
+        if (this._isMounted) {
+          this.setState({
+            alertsResponse,
+          });
+        }
+      })
+      .catch(error => {
+        if (this._isMounted) {
+          this.setState({
+            alertsResponse: error,
+          });
+        }
+      })
+      .then(() => {
+        if (this._isMounted) {
+          setTimeout(() => this.fetchAlerts(), REFRESH_TIMEOUT);
+        }
+      });
   }
 
   componentDidMount() {
@@ -110,13 +163,17 @@ export class StorageOverview extends React.Component {
     this.fetchPrometheusQuery(STORAGE_CEPH_CAPACITY_USED_QUERY, response => this.setCapacityData('capacityUsed', response));
     this.fetchPrometheusQuery(CEPH_OSD_UP_QUERY, response => this.setCephDiskStats('cephOsdUp', response));
     this.fetchPrometheusQuery(CEPH_OSD_DOWN_QUERY, response => this.setCephDiskStats('cephOsdDown', response));
+    this.fetchPrometheusQuery(UTILIZATION_IOPS, response => this.setUtilizationData('iopsUtilization', response));
+    this.fetchPrometheusQuery(UTILIZATION_LATENCY, response => this.setUtilizationData('latencyUtilization', response));
+    this.fetchPrometheusQuery(UTILIZATION_THROUGHPUT, response => this.setUtilizationData('throughputUtilization', response));
+    this.fetchAlerts();
   }
   componentWillUnmount() {
     this._isMounted = false;
   }
 
   render() {
-    const { ocsHealthData, capacityData, diskStats } = this.state;
+    const { ocsHealthData, capacityData, diskStats, utilizationData, alertsResponse } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
@@ -125,6 +182,12 @@ export class StorageOverview extends React.Component {
           ocsHealthData,
           ...capacityData,
           diskStats,
+          ...utilizationData,
+          alertsResponse,
+          eventsData: {
+            Component: OverviewEventStream,
+            loaded: true,
+          },
         },
       };
     };
