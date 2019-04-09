@@ -24,6 +24,8 @@ const STORAGE_CEPH_CAPACITY_USED_QUERY = 'ceph_cluster_total_used_bytes';
 const CEPH_OSD_UP_QUERY = 'sum(ceph_osd_up)';
 const CEPH_OSD_DOWN_QUERY = 'count(ceph_osd_up == 0.0) OR vector(0)';
 
+const TOP_CONSUMERS_QUERY = `(sort(topk(5, sum((max(kubelet_volume_stats_used_bytes{namespace!=""}) by (namespace, persistentvolumeclaim))* on (namespace,persistentvolumeclaim) group_left(pod) (max(kube_pod_spec_volumes_persistentvolumeclaims_info{namespace!="", pod != ""}) by (namespace, persistentvolumeclaim, pod))) by (namespace))))[360m:60m]`;
+
 const resourceMap = {
   nodes: {
     resource: getResource(NodeModel, { namespaced: false }),
@@ -49,12 +51,17 @@ export class StorageOverview extends React.Component {
         data: {},
         loaded: false,
       },
+      topConsumersData: {
+        stats: [],
+        loaded: false,
+      },
       capacityData: {},
       diskStats: {},
     };
     this.setHealthData = this._setHealthData.bind(this);
     this.setCapacityData = this._setCapacityData.bind(this);
     this.setCephDiskStats = this._setCephDiskStats.bind(this);
+    this.setTopConsumersData = this._setTopConsumersData.bind(this);
   }
 
   _setHealthData(healthy) {
@@ -85,6 +92,16 @@ export class StorageOverview extends React.Component {
       },
     }));
   }
+    
+  _setTopConsumersData(response) {
+    const result = _.get(response, 'data.result', []);
+    this.setState({
+      topConsumersData: {
+        stats: result,
+        loaded: true,
+      },
+    });
+  }
 
   fetchPrometheusQuery(query, callback) {
     const url = `${getPrometheusBaseURL()}/api/v1/query?query=${encodeURIComponent(query)}`;
@@ -110,13 +127,15 @@ export class StorageOverview extends React.Component {
     this.fetchPrometheusQuery(STORAGE_CEPH_CAPACITY_USED_QUERY, response => this.setCapacityData('capacityUsed', response));
     this.fetchPrometheusQuery(CEPH_OSD_UP_QUERY, response => this.setCephDiskStats('cephOsdUp', response));
     this.fetchPrometheusQuery(CEPH_OSD_DOWN_QUERY, response => this.setCephDiskStats('cephOsdDown', response));
+    this.fetchPrometheusQuery(TOP_CONSUMERS_QUERY, response => this.setTopConsumersData(response));
   }
+
   componentWillUnmount() {
     this._isMounted = false;
   }
 
   render() {
-    const { ocsHealthData, capacityData, diskStats } = this.state;
+    const { ocsHealthData, capacityData, diskStats, topConsumersData } = this.state;
     const inventoryResourceMapToProps = resources => {
       return {
         value: {
@@ -125,6 +144,7 @@ export class StorageOverview extends React.Component {
           ocsHealthData,
           ...capacityData,
           diskStats,
+          ...topConsumersData,
         },
       };
     };
