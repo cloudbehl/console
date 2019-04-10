@@ -1,4 +1,6 @@
 import React from "react";
+import * as _ from "lodash-es";
+
 import {
   StorageOverview as KubevirtStorageOverview,
   StorageOverviewContext,
@@ -36,6 +38,9 @@ const UTILIZATION_LATENCY_QUERY =
   "(quantile(.95,(irate(node_disk_read_time_seconds_total[1m]) + irate(node_disk_write_time_seconds_total[1m]) /  (irate(node_disk_reads_completed_total[1m]) + irate(node_disk_writes_completed_total[1m])))))[360m:5m]";
 const UTILIZATION_THROUGHPUT_QUERY =
   "(sum(rate(ceph_pool_wr_bytes[1m]) + rate(ceph_pool_rd_bytes[1m])))[360m:5m]";
+
+const TOP_CONSUMERS_QUERY =
+  '(sort(topk(5, sum((max(kubelet_volume_stats_used_bytes{namespace!=""}) by (namespace, persistentvolumeclaim))* on (namespace,persistentvolumeclaim) group_left(pod) (max(kube_pod_spec_volumes_persistentvolumeclaims_info{namespace!="", pod != ""}) by (namespace, persistentvolumeclaim, pod))) by (namespace))))[360m:60m]';
 
 const resourceMap = {
   nodes: {
@@ -75,6 +80,10 @@ export class StorageOverview extends React.Component {
         data: {},
         loaded: false
       },
+      topConsumersData: {
+        stats: [],
+        loaded: false
+      },
       capacityData: {},
       diskStats: {},
       utilizationData: {},
@@ -86,6 +95,7 @@ export class StorageOverview extends React.Component {
     this.setCephDiskStats = this._setCephDiskStats.bind(this);
     this.setUtilizationData = this._setUtilizationData.bind(this);
     this.setDataResiliencyData = this._setDataResiliencyData.bind(this);
+    this.setTopConsumersData = this._setTopConsumersData.bind(this);
   }
 
   _setHealthData(healthy) {
@@ -132,6 +142,41 @@ export class StorageOverview extends React.Component {
         [key]: response
       }
     }));
+  }
+
+  _setTopConsumersData(response) {
+    const result = _.get(response, "data.result", []);
+    this.setState({
+      topConsumersData: {
+        stats: result,
+        loaded: true
+      }
+    });
+  }
+
+  fetchPrometheusQuery(query, callback) {
+    const url = `${getPrometheusBaseURL()}/api/v1/query?query=${encodeURIComponent(
+      query
+    )}`;
+    coFetchJSON(url)
+      .then(result => {
+        if (this._isMounted) {
+          callback(result);
+        }
+      })
+      .catch(error => {
+        if (this._isMounted) {
+          callback(error);
+        }
+      })
+      .then(() => {
+        if (this._isMounted) {
+          setTimeout(
+            () => this.fetchPrometheusQuery(query, callback),
+            REFRESH_TIMEOUT
+          );
+        }
+      });
   }
 
   fetchPrometheusQuery(query, callback) {
@@ -219,7 +264,11 @@ export class StorageOverview extends React.Component {
       this.setDataResiliencyData("cleanPgRaw", response)
     );
     this.fetchAlerts();
+    this.fetchPrometheusQuery(TOP_CONSUMERS_QUERY, response =>
+      this.setTopConsumersData(response)
+    );
   }
+
   componentWillUnmount() {
     this._isMounted = false;
   }
@@ -231,7 +280,8 @@ export class StorageOverview extends React.Component {
       diskStats,
       utilizationData,
       alertsResponse,
-      dataResiliencyData
+      dataResiliencyData,
+      topConsumersData
     } = this.state;
 
     const inventoryResourceMapToProps = resources => {
@@ -248,7 +298,8 @@ export class StorageOverview extends React.Component {
           },
           ...utilizationData,
           alertsResponse,
-          ...dataResiliencyData
+          ...dataResiliencyData,
+          ...topConsumersData
         }
       };
     };
