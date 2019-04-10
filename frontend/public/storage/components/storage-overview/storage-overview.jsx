@@ -1,59 +1,62 @@
-import React from 'react';
+import React from "react";
 import {
   StorageOverview as KubevirtStorageOverview,
   StorageOverviewContext,
-  getResource,
-} from 'kubevirt-web-ui-components';
+  getResource
+} from "kubevirt-web-ui-components";
 
 import {
   CephClusterModel,
   NodeModel,
   PersistentVolumeClaimModel,
-  PersistentVolumeModel,
-} from '../../../models';
+  PersistentVolumeModel
+} from "../../../models";
 
-import { WithResources } from '../../../kubevirt/components/utils/withResources';
-import { LoadingInline } from '../../../kubevirt/components/utils/okdutils';
-import { coFetchJSON } from '../../../co-fetch';
-import { EventStream } from '../../../components/events';
-import { EventsInnerOverview } from '../../../kubevirt/components/cluster/events-inner-overview';
+import { WithResources } from "../../../kubevirt/components/utils/withResources";
+import { LoadingInline } from "../../../kubevirt/components/utils/okdutils";
+import { coFetchJSON } from "../../../co-fetch";
+import { EventStream } from "../../../components/events";
+import { EventsInnerOverview } from "../../../kubevirt/components/cluster/events-inner-overview";
 
 const REFRESH_TIMEOUT = 5000;
 
-const CEPH_STATUS_QUERY = 'ceph_health_status';
-const STORAGE_CEPH_CAPACITY_TOTAL_QUERY = 'ceph_cluster_total_bytes';
-const STORAGE_CEPH_CAPACITY_USED_QUERY = 'ceph_cluster_total_used_bytes';
-const CEPH_OSD_UP_QUERY = 'sum(ceph_osd_up)';
-const CEPH_OSD_DOWN_QUERY = 'count(ceph_osd_up == 0.0) OR vector(0)';
+const CEPH_STATUS_QUERY = "ceph_health_status";
+const STORAGE_CEPH_CAPACITY_TOTAL_QUERY = "ceph_cluster_total_bytes";
+const STORAGE_CEPH_CAPACITY_USED_QUERY = "ceph_cluster_total_used_bytes";
+const CEPH_OSD_UP_QUERY = "sum(ceph_osd_up)";
+const CEPH_OSD_DOWN_QUERY = "count(ceph_osd_up == 0.0) OR vector(0)";
+const CEPH_PG_STALE_QUERY = "ceph_pg_stale";
+const CEPH_PG_TOTAL_QUERY = "ceph_pg_total";
+const CEPH_PG_CLEAN_QUERY = "ceph_pg_clean";
 
 const UTILIZATION_IOPS_QUERY =
-  '(sum(rate(ceph_pool_wr[1m])) + sum(rate(ceph_pool_rd[1m])))[360m:5m]';
+  "(sum(rate(ceph_pool_wr[1m])) + sum(rate(ceph_pool_rd[1m])))[360m:5m]";
 //This query only count the latency for all drives in the configuration. Might go with same for the demo
 const UTILIZATION_LATENCY_QUERY =
-  '(quantile(.95,(irate(node_disk_read_time_seconds_total[1m]) + irate(node_disk_write_time_seconds_total[1m]) /  (irate(node_disk_reads_completed_total[1m]) + irate(node_disk_writes_completed_total[1m])))))[360m:5m]';
+  "(quantile(.95,(irate(node_disk_read_time_seconds_total[1m]) + irate(node_disk_write_time_seconds_total[1m]) /  (irate(node_disk_reads_completed_total[1m]) + irate(node_disk_writes_completed_total[1m])))))[360m:5m]";
 const UTILIZATION_THROUGHPUT_QUERY =
-  '(sum(rate(ceph_pool_wr_bytes[1m]) + rate(ceph_pool_rd_bytes[1m])))[360m:5m]';
+  "(sum(rate(ceph_pool_wr_bytes[1m]) + rate(ceph_pool_rd_bytes[1m])))[360m:5m]";
 
 const resourceMap = {
   nodes: {
-    resource: getResource(NodeModel, { namespaced: false }),
+    resource: getResource(NodeModel, { namespaced: false })
   },
   pvs: {
-    resource: getResource(PersistentVolumeModel),
+    resource: getResource(PersistentVolumeModel)
   },
   pvcs: {
-    resource: getResource(PersistentVolumeClaimModel),
+    resource: getResource(PersistentVolumeClaimModel)
   },
   cephCluster: {
-    resource: getResource(CephClusterModel),
-  },
+    resource: getResource(CephClusterModel)
+  }
 };
 
 const getAlertManagerBaseURL = () =>
-  'https://alertmanager-main-openshift-monitoring.apps.uchapaga.devcluster.openshift.com/';
+  "https://alertmanager-main-openshift-monitoring.apps.uchapaga.devcluster.openshift.com/";
 
 const getPrometheusBaseURL = () =>
-  'https://prometheus-k8s-openshift-monitoring.apps.uchapaga.devcluster.openshift.com';
+  "https://prometheus-k8s-openshift-monitoring.apps.uchapaga.devcluster.openshift.com";
 
 const OverviewEventStream = () => (
   <EventStream
@@ -70,27 +73,29 @@ export class StorageOverview extends React.Component {
     this.state = {
       ocsHealthData: {
         data: {},
-        loaded: false,
+        loaded: false
       },
       capacityData: {},
       diskStats: {},
       utilizationData: {},
+      dataResiliencyData: {}
     };
 
     this.setHealthData = this._setHealthData.bind(this);
     this.setCapacityData = this._setCapacityData.bind(this);
     this.setCephDiskStats = this._setCephDiskStats.bind(this);
     this.setUtilizationData = this._setUtilizationData.bind(this);
+    this.setDataResiliencyData = this._setDataResiliencyData.bind(this);
   }
 
   _setHealthData(healthy) {
     this.setState({
       ocsHealthData: {
         data: {
-          healthy,
+          healthy
         },
-        loaded: true,
-      },
+        loaded: true
+      }
     });
   }
 
@@ -98,16 +103,16 @@ export class StorageOverview extends React.Component {
     this.setState(state => ({
       capacityData: {
         ...state.capacityData,
-        [key]: response,
-      },
+        [key]: response
+      }
     }));
   }
   _setUtilizationData(key, response) {
     this.setState(state => ({
       utilizationData: {
         ...state.utilizationData,
-        [key]: response,
-      },
+        [key]: response
+      }
     }));
   }
 
@@ -115,8 +120,17 @@ export class StorageOverview extends React.Component {
     this.setState(state => ({
       diskStats: {
         ...state.diskStats,
-        [key]: response,
-      },
+        [key]: response
+      }
+    }));
+  }
+
+  _setDataResiliencyData(key, response) {
+    this.setState(state => ({
+      dataResiliencyData: {
+        ...state.dataResiliencyData,
+        [key]: response
+      }
     }));
   }
 
@@ -151,14 +165,14 @@ export class StorageOverview extends React.Component {
       .then(alertsResponse => {
         if (this._isMounted) {
           this.setState({
-            alertsResponse,
+            alertsResponse
           });
         }
       })
       .catch(error => {
         if (this._isMounted) {
           this.setState({
-            alertsResponse: error,
+            alertsResponse: error
           });
         }
       })
@@ -174,26 +188,35 @@ export class StorageOverview extends React.Component {
 
     this.fetchPrometheusQuery(CEPH_STATUS_QUERY, this.setHealthData);
     this.fetchPrometheusQuery(STORAGE_CEPH_CAPACITY_TOTAL_QUERY, response =>
-      this.setCapacityData('capacityTotal', response)
+      this.setCapacityData("capacityTotal", response)
     );
     this.fetchPrometheusQuery(STORAGE_CEPH_CAPACITY_USED_QUERY, response =>
-      this.setCapacityData('capacityUsed', response)
+      this.setCapacityData("capacityUsed", response)
     );
     this.fetchPrometheusQuery(CEPH_OSD_UP_QUERY, response =>
-      this.setCephDiskStats('cephOsdUp', response)
+      this.setCephDiskStats("cephOsdUp", response)
     );
     this.fetchPrometheusQuery(CEPH_OSD_DOWN_QUERY, response =>
-      this.setCephDiskStats('cephOsdDown', response)
+      this.setCephDiskStats("cephOsdDown", response)
     );
 
     this.fetchPrometheusQuery(UTILIZATION_IOPS_QUERY, response =>
-      this.setUtilizationData('iopsUtilization', response)
+      this.setUtilizationData("iopsUtilization", response)
     );
     this.fetchPrometheusQuery(UTILIZATION_LATENCY_QUERY, response =>
-      this.setUtilizationData('latencyUtilization', response)
+      this.setUtilizationData("latencyUtilization", response)
     );
     this.fetchPrometheusQuery(UTILIZATION_THROUGHPUT_QUERY, response =>
-      this.setUtilizationData('throughputUtilization', response)
+      this.setUtilizationData("throughputUtilization", response)
+    );
+    this.fetchPrometheusQuery(CEPH_PG_STALE_QUERY, response =>
+      this.setDataResiliencyData("stalePgRaw", response)
+    );
+    this.fetchPrometheusQuery(CEPH_PG_TOTAL_QUERY, response =>
+      this.setDataResiliencyData("totalPgRaw", response)
+    );
+    this.fetchPrometheusQuery(CEPH_PG_CLEAN_QUERY, response =>
+      this.setDataResiliencyData("cleanPgRaw", response)
     );
     this.fetchAlerts();
   }
@@ -208,6 +231,7 @@ export class StorageOverview extends React.Component {
       diskStats,
       utilizationData,
       alertsResponse,
+      dataResiliencyData
     } = this.state;
 
     const inventoryResourceMapToProps = resources => {
@@ -220,11 +244,12 @@ export class StorageOverview extends React.Component {
           diskStats,
           eventsData: {
             Component: OverviewEventStream,
-            loaded: true,
+            loaded: true
           },
           ...utilizationData,
           alertsResponse,
-        },
+          ...dataResiliencyData
+        }
       };
     };
 
