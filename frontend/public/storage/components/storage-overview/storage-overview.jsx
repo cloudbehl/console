@@ -61,7 +61,7 @@ const PROM_RESULT_CONSTANTS = {
   totalPgRaw: 'totalPgRaw',
   projectsRequestedCapacity: 'projectsRequestedCapacity',
   projectsUsedCapacity: 'projectsUsedCapacity',
-  slClassesRequestedCapacity:'slClassesRequestedCapacity',
+  slClassesRequestedCapacity: 'slClassesRequestedCapacity',
   slClassesUsedCapacity: 'slClassesUsedCapacity',
   podsRequestedCapacity: 'podsRequestedCapacity',
   podsUsedCapacity: 'podsUsedCapacity',
@@ -85,7 +85,7 @@ const resourceMap = {
 const pvcFilter = ({ kind }) => PersistentVolumeClaimModel.kind === kind;
 const podFilter = ({ kind, namespace }) => PodModel.kind === kind && namespace === 'openshift-storage';
 
-const EventStreamComponent = () => <EventStream scrollableElementId="events-body" InnerComponent={EventsInnerOverview} overview={true} namespace={undefined} filter={[pvcFilter, podFilter]} />;
+const OverviewEventStream = () => <EventStream scrollableElementId="events-body" InnerComponent={EventsInnerOverview} overview={true} namespace={undefined} filter={[pvcFilter, podFilter]} />;
 
 export class StorageOverview extends React.Component {
   constructor(props) {
@@ -94,19 +94,19 @@ export class StorageOverview extends React.Component {
 
     let initializePrometheus;
 
-    if (!getPrometheusBaseURL()){
+    if (!getPrometheusBaseURL()) {
       warn('Prometheus BASE URL is missing!');
       initializePrometheus = {}; // data loaded
     }
 
-    if (!getAlertManagerBaseURL()){
+    if (!getAlertManagerBaseURL()) {
       warn('Alert Manager BASE URL is missing!');
     }
     this.state = {
       ...Object.keys(PROM_RESULT_CONSTANTS).reduce((initAcc, key) => {
         initAcc[PROM_RESULT_CONSTANTS[key]] = initializePrometheus;
         return initAcc;
-      },{}),
+      }, {}),
     };
 
     this.onFetch = this._onFetch.bind(this);
@@ -164,7 +164,11 @@ export class StorageOverview extends React.Component {
           LoadingComponent: LoadingInline,
           ...resources,
           ...this.state,
-          EventStreamComponent,
+
+          eventsData: {
+            Component: OverviewEventStream,
+            loaded: true,
+          },
         },
       };
     };
