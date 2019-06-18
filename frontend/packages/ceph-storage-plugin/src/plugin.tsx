@@ -1,27 +1,23 @@
-import * as React from 'react';
 import * as _ from 'lodash-es';
 
 import {
   Plugin,
   ModelFeatureFlag,
   ModelDefinition,
-  DashboardsOverviewHealthPrometheusSubsystem,
   HrefNavItem,
   RoutePage,
+  TabItem
 } from '@console/plugin-sdk';
 
-import * as models from './models';
+import { CephClusterModel } from './models';
+import { StorageDashboard } from './components/dashboards/storage-dashboard'
 
 type ConsumedExtensions =
   | RoutePage
   | HrefNavItem
   | ModelFeatureFlag
   | ModelDefinition
-  | DashboardsOverviewHealthPrometheusSubsystem;
-
-import { getCephHealth } from './components/dashboards/health/health-card';
-
-import { StorageDashboard } from './components/dashboards/storage-dashboard';
+  | TabItem;
 
 const CEPH_FLAG = 'CEPH';
 
@@ -29,40 +25,31 @@ const plugin: Plugin<ConsumedExtensions> = [
   {
     type: 'ModelDefinition',
     properties: {
-      models: _.values(models),
+      models: [CephClusterModel],
     },
   },
   {
     type: 'FeatureFlag/Model',
     properties: {
-      model: models.CephClusterModel,
+      model: CephClusterModel,
       flag: CEPH_FLAG,
     },
   },
   {
-    type: 'NavItem/Href',
+    type: 'TabItem/HorizontalNav',
     properties: {
-      section: 'Home',
       componentProps: {
-        name: 'Ceph dashboard',
-        href: '/storage-dashboard',
+        match: {
+          isExact: false,
+          url: '/dashboards',
+          path: '/dashboards',
+        },
+        pages: [{
+          name: "Storage",
+          href: 'storage-dashboard',
+          component: StorageDashboard
+        }]
       },
-    },
-  },
-  {
-    type: 'Dashboards/Overview/Health/Prometheus',
-    properties: {
-      title: 'Ceph Health',
-      query: 'ceph_health_status',
-      healthHandler: getCephHealth,
-    },
-  },
-  {
-    type: 'Page/Route',
-    properties: {
-      exact: true,
-      path: '/storage-dashboard',
-      render: () => <StorageDashboard />,
     },
   },
 ];

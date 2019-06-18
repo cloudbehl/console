@@ -8,13 +8,14 @@ import { EmptyBox, StatusBox } from '.';
 import { PodsPage } from '../pod';
 import { AsyncComponent } from './async';
 import { K8sResourceKind } from '../../module/k8s';
+import * as plugins from '../../plugins';
 
 const editYamlComponent = (props) => <AsyncComponent loader={() => import('../edit-yaml').then(c => c.EditYAML)} obj={props.obj} />;
 export const viewYamlComponent = (props) => <AsyncComponent loader={() => import('../edit-yaml').then(c => c.EditYAML)} obj={props.obj} readOnly={true} />;
 
 class PodsComponent extends React.PureComponent<PodsComponentProps> {
   render() {
-    const {metadata: {namespace}, spec: {selector}} = this.props.obj;
+    const { metadata: { namespace }, spec: { selector } } = this.props.obj;
     if (_.isEmpty(selector)) {
       return <EmptyBox label="Pods" />;
     }
@@ -32,7 +33,7 @@ type Page = {
   component?: React.ComponentType<any>;
 };
 
-type NavFactory = {[name: string]: (c?: React.ComponentType<any>) => Page};
+type NavFactory = { [name: string]: (c?: React.ComponentType<any>) => Page };
 export const navFactory: NavFactory = {
   details: component => ({
     href: '',
@@ -106,21 +107,21 @@ export const navFactory: NavFactory = {
   }),
 };
 
-export const NavBar: React.SFC<NavBarProps> = ({pages, basePath, hideDivider}) => {
+export const NavBar: React.SFC<NavBarProps> = ({ pages, basePath, hideDivider }) => {
   // These tabs go before the divider
   const before = ['', 'edit', 'yaml'];
   const divider = <li className="co-m-horizontal-nav__menu-item co-m-horizontal-nav__menu-item--divider" key="_divider" />;
   basePath = basePath.replace(/\/$/, '');
 
   const primaryTabs = <ul className="co-m-horizontal-nav__menu-primary">{
-    pages.filter(({href}, i, all) => before.includes(href) || before.includes(_.get(all[i + 1], 'href'))).map(({name, href}) => {
-      const klass = classNames('co-m-horizontal-nav__menu-item', {'co-m-horizontal-nav-item--active': location.pathname.replace(basePath, '/').endsWith(`/${href}`)});
+    pages.filter(({ href }, i, all) => before.includes(href) || before.includes(_.get(all[i + 1], 'href'))).map(({ name, href }) => {
+      const klass = classNames('co-m-horizontal-nav__menu-item', { 'co-m-horizontal-nav-item--active': location.pathname.replace(basePath, '/').endsWith(`/${href}`) });
       return <li className={klass} key={name}><Link to={`${basePath}/${href}`}>{name}</Link></li>;
     })}{!hideDivider && divider}</ul>;
 
   const secondaryTabs = <ul className="co-m-horizontal-nav__menu-secondary">{
-    pages.slice(React.Children.count(primaryTabs.props.children) - 1).map(({name, href}) => {
-      const klass = classNames('co-m-horizontal-nav__menu-item', {'co-m-horizontal-nav-item--active': location.pathname.replace(basePath, '/').endsWith(`/${href}`)});
+    pages.slice(React.Children.count(primaryTabs.props.children) - 1).map(({ name, href }) => {
+      const klass = classNames('co-m-horizontal-nav__menu-item', { 'co-m-horizontal-nav-item--active': location.pathname.replace(basePath, '/').endsWith(`/${href}`) });
       return <li className={klass} key={name}><Link to={`${basePath}/${href}`}>{name}</Link></li>;
     })}</ul>;
 
@@ -149,7 +150,7 @@ export class HorizontalNav extends React.PureComponent<HorizontalNavProps> {
   };
 
   renderContent(routes: any) {
-    const {noStatusBox, obj, EmptyMsg, label} = this.props;
+    const { noStatusBox, obj, EmptyMsg, label } = this.props;
     const content = <Switch> {routes} </Switch>;
 
     if (noStatusBox) {
@@ -165,11 +166,13 @@ export class HorizontalNav extends React.PureComponent<HorizontalNavProps> {
 
   render() {
     const props = this.props;
-
-    const componentProps = {..._.pick(props, ['filters', 'selected', 'match']), obj: _.get(props.obj, 'data')};
-    const extraResources = _.reduce(props.resourceKeys, (extraObjs, key) => ({...extraObjs, [key]: _.get(props[key], 'data')}), {});
-    const pages = props.pages || props.pagesFor(_.get(props.obj, 'data'));
-
+    const componentProps = { ..._.pick(props, ['filters', 'selected', 'match']), obj: _.get(props.obj, 'data') };
+    const extraResources = _.reduce(props.resourceKeys, (extraObjs, key) => ({ ...extraObjs, [key]: _.get(props[key], 'data') }), {});
+    const defaultPage = props.pages || props.pagesFor(_.get(props.obj, 'data'));
+    const fliteredPluginList = plugins.registry
+      .getTabItems()
+      .filter(item => item.properties.componentProps.match.url === props.match.url);
+    const pages = _.compact(defaultPage.concat(_.get(fliteredPluginList[0], 'properties.componentProps.pages')));
     const routes = pages.map(p => {
       const path = `${props.match.url}/${p.href}`;
       const render = () => {
@@ -199,7 +202,7 @@ export type NavBarProps = {
 
 export type HorizontalNavProps = {
   className?: string;
-  obj?: {loaded: boolean, data: K8sResourceKind};
+  obj?: { loaded: boolean, data: K8sResourceKind };
   label?: string;
   pages: Page[];
   pagesFor?: (obj: K8sResourceKind) => Page[];

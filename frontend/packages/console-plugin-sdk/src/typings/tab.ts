@@ -1,60 +1,20 @@
 import {
-  SimpleTabNavProps,
-} from '@console/internal/components/utils/simple-tab-nav';
+  HorizontalNavProps,
+} from '@console/internal/components/utils/horizontal-nav';
+
 import { Extension } from './extension';
 
 namespace ExtensionProperties {
-  interface TabItem {
-    section?: string;
-    /** Nav section to which this item belongs to. */
-    resourcePage?: string;
-    /** Props to pass to the corresponding `NavLink` component. */
-    componentProps: Pick<SimpleTabNavProps, 'selectedTab' | 'tabs'>;
-    /** Nav item after which this item should be placed. */
-    mergeAfter?: string;
+  export interface TabItem {
+    /** Props to pass to the corresponding `HorizontalNav` component. */
+    componentProps: Pick<HorizontalNavProps, 'pages' | 'match'>;
   }
+}
 
-//   export interface HrefNavItem extends NavItem {
-//     componentProps: NavItem['componentProps'] & Pick<HrefLinkProps, 'href' | 'activePath'>;
-//   }
+export interface TabItem extends Extension<ExtensionProperties.TabItem> {
+  type: 'TabItem/HorizontalNav';
+}
 
-//   export interface ResourceNSNavItem extends NavItem {
-//     componentProps: NavItem['componentProps'] & Pick<ResourceNSLinkProps, 'resource' | 'model'>;
-//   }
-
-//   export interface ResourceClusterNavItem extends NavItem {
-//     componentProps: NavItem['componentProps'] &
-//     Pick<ResourceClusterLinkProps, 'resource' | 'model'>;
-//   }
-// }
-
-// export interface HrefNavItem extends Extension<ExtensionProperties.HrefNavItem> {
-//   type: 'NavItem/Href';
-// }
-
-// export interface ResourceNSNavItem extends Extension<ExtensionProperties.ResourceNSNavItem> {
-//   type: 'NavItem/ResourceNS';
-// }
-
-// export interface ResourceClusterNavItem
-//   extends Extension<ExtensionProperties.ResourceClusterNavItem> {
-//   type: 'NavItem/ResourceCluster';
-// }
-
-// export type NavItem = HrefNavItem | ResourceNSNavItem | ResourceClusterNavItem;
-
-// export const isHrefNavItem = (e: Extension<any>): e is HrefNavItem => {
-//   return e.type === 'NavItem/Href';
-// };
-
-// export const isResourceNSNavItem = (e: Extension<any>): e is ResourceNSNavItem => {
-//   return e.type === 'NavItem/ResourceNS';
-// };
-
-// export const isResourceClusterNavItem = (e: Extension<any>): e is ResourceClusterNavItem => {
-//   return e.type === 'NavItem/ResourceCluster';
-// };
-
-// export const isNavItem = (e: Extension<any>): e is NavItem => {
-//   return isHrefNavItem(e) || isResourceNSNavItem(e) || isResourceClusterNavItem(e);
-// };
+export const isTabItem = (e: Extension<any>): e is TabItem => {
+  return e.type === 'TabItem/HorizontalNav';
+};

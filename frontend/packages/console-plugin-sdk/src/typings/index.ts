@@ -9,3 +9,4 @@ export * from './nav';
 export * from './pages';
 export * from './perspective';
 export * from './yaml-templates';
+export * from './tab'

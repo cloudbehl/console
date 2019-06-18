@@ -23,11 +23,11 @@ const StorageClassHeader = props => <ListHeader>
   <ColHead {...props} className="col-sm-2 hidden-xs" sortField="reclaimPolicy">Reclaim <span className="hidden-sm">Policy</span></ColHead>
 </ListHeader>;
 
-const StorageClassRow: React.SFC<StorageClassRowProps> = ({obj}) => {
+const StorageClassRow: React.SFC<StorageClassRowProps> = ({ obj }) => {
   return <div className="row co-resource-list__item">
     <div className="col-sm-5 col-xs-6 co-break-word">
       <ResourceLink inline kind={StorageClassReference} name={obj.metadata.name} />
-      { isDefaultClass(obj) && <span className="small text-muted storage-class-default">&ndash; Default</span> }
+      {isDefaultClass(obj) && <span className="small text-muted storage-class-default">&ndash; Default</span>}
     </div>
     <div className="col-sm-5 col-xs-6 co-break-word">
       {obj.provisioner}
@@ -41,7 +41,7 @@ const StorageClassRow: React.SFC<StorageClassRowProps> = ({obj}) => {
   </div>;
 };
 
-const StorageClassDetails: React.SFC<StorageClassDetailsProps> = ({obj}) => <React.Fragment>
+const StorageClassDetails: React.SFC<StorageClassDetailsProps> = ({ obj }) => <React.Fragment>
   <div className="co-m-pane__body">
     <SectionHeading text="StorageClass Overview" />
     <div className="row">
