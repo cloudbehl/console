@@ -18,6 +18,7 @@ import {
   STORAGE_HEALTH_QUERIES,
 } from './constants/queries';
 import { getCephHealthState } from './components/dashboard-page/storage-dashboard/health-card/utils';
+import { AddCapacityModel } from './components/modals/index';
 
 type ConsumedExtensions =
   | ModelFeatureFlag
@@ -174,7 +175,7 @@ const plugin: Plugin<ConsumedExtensions> = [
     properties: {
       kind: 'StorageCluster',
       label: 'Add Capacity',
-      callback: (kind, obj) => () => console.log(`open modal for ${kind} ${obj.kind}`),
+      callback: (kind, obj) => () => AddCapacityModel({kind}),//console.log(`open modal for ${kind} ${obj.kind}`)
     },
   },
 ];
