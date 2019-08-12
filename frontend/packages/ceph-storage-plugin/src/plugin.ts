@@ -18,7 +18,6 @@ import {
   STORAGE_HEALTH_QUERIES,
 } from './constants/queries';
 import { getCephHealthState } from './components/dashboard-page/storage-dashboard/health-card/utils';
-import { AddCapacityModel } from './components/modals/index';
 
 type ConsumedExtensions =
   | ModelFeatureFlag
@@ -29,10 +28,11 @@ type ConsumedExtensions =
   | DashboardsOverviewQuery
   | ClusterServiceVersionAction;
 
-const CEPH_FLAG = 'CEPH';
-
 window.SERVER_FLAGS.prometheusBaseURL =
-  'https://prometheus-k8s-openshift-monitoring.apps.5aug.devcluster.openshift.com';
+  'http://prometheus-k8s-openshift-monitoring.apps.12aug.devcluster.openshift.com';
+window.SERVER_FLAGS.alertManagerBaseURL =
+  'https://alertmanager-main-openshift-monitoring.apps.12aug.devcluster.openshift.com';
+const CEPH_FLAG = 'CEPH';
 
 const plugin: Plugin<ConsumedExtensions> = [
   {
@@ -175,7 +175,11 @@ const plugin: Plugin<ConsumedExtensions> = [
     properties: {
       kind: 'StorageCluster',
       label: 'Add Capacity',
-      callback: (kind, obj) => () => AddCapacityModel({kind}),//console.log(`open modal for ${kind} ${obj.kind}`)
+      callback: (kind, obj) => () => import(
+        './components/modals/add-capacity-modal/add-capacity-modal' /* webpackChunkName: "ceph-storage-data-resiliency-card" */
+      ).then((m) => m.addCapacityModal(
+        kind,
+      )),
     },
   },
 ];

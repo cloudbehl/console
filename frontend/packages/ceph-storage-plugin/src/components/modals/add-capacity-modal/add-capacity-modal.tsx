@@ -1,49 +1,88 @@
 import * as React from 'react';
-import { TextArea } from '@patternfly/react-core';
-import { HandlePromiseProps, withHandlePromise } from '@console/internal/components/utils';
+import * as _ from 'lodash';
+
+import { RequestSizeInput } from '@console/internal/components/utils/index';
+import { withHandlePromise } from '@console/internal/components/utils';
+import { StorageClassDropdown } from '@console/internal/components/utils/storage-class-dropdown';
 import {
   createModalLauncher,
   ModalTitle,
   ModalBody,
   ModalSubmitFooter,
-  ModalComponentProps,
 } from '@console/internal/components/factory';
-import { k8sPatch } from '@console/internal/module/k8s';
-import { VMLikeEntityKind } from 'packages/kubevirt-plugin/src/types';
-import { getDescription, getVMLikeModel } from '/home/kmurarka/ocs/console/frontend/packages/kubevirt-plugin/src/selectors/selectors';
-import { getUpdateDescriptionPatches } from '/home/kmurarka/ocs/console/frontend/packages/kubevirt-plugin/src/k8s/patches/vm/vm-patches';
 
 import './_add-capacity-modal.scss';
 
-export const AddCapacityModel = withHandlePromise((props: AddCapacityModelProps) => {
+export const AddCapacityModal = withHandlePromise((props: AddCapacityModelProps) => {
   const { kind, inProgress, errorMessage, handlePromise, close, cancel } = props;
-
-  const [description, setDescription] = React.useState(getDescription(kind));
+  const dropdownUnits = {
+    TiB: 'TiB',
+  };
+  const [requestSizeUnit, setRequestSizeUnit] = React.useState(dropdownUnits.TiB);
+  const [requestSizeValue, setRequestSizeValue] = React.useState("1");
+  const [storageClass, setStorageClass] = React.useState('');
 
   const submit = (e) => {
     e.preventDefault();
+  };
 
+  const handleRequestSizeInputChange = obj => {
+    setRequestSizeUnit(obj.unit);
+    setRequestSizeValue(obj.value);
+  };
+
+  const handleStorageClass = storageClass => {
+    setStorageClass(_.get(storageClass, 'metadata.name'));
   };
 
   return (
     <form onSubmit={submit} className="modal-content">
       <ModalTitle>Add Capacity</ModalTitle>
       <ModalBody>
-        
+        Increase the capacity of <strong>{kind}</strong>.
+        <div className="add-capacity-model__padding">
+          <div className="form-group">
+            <label className="control-label" htmlFor="request-size-input">
+              Requested Capacity
+          </label>
+            <RequestSizeInput
+              name="requestSize"
+              required={true}
+              placeholder={requestSizeValue}
+              onChange={handleRequestSizeInputChange}
+              defaultRequestSizeUnit={requestSizeUnit}
+              defaultRequestSizeValue={requestSizeValue}
+              dropdownUnits={dropdownUnits}
+              describedBy="request-size-help"
+            />
+          </div>
+          <StorageClassDropdown
+            onChange={handleStorageClass}
+            id="storageclass-dropdown"
+            required={false}
+            name="storageClass"
+          />
+        </div>
       </ModalBody>
       <ModalSubmitFooter
         errorMessage={errorMessage}
         inProgress={inProgress}
-        submitText="Save"
+        submitText="Add"
         cancel={cancel}
       />
     </form>
   );
 });
 
-export type AddCapacityModelProps = HandlePromiseProps &
-  ModalComponentProps & {
-    kind: any;
-  };
+export type AddCapacityModelProps = {
+  kind?: any;
+  obj?: any
+  handlePromise: <T>(promise: Promise<T>) => Promise<T>;
+  inProgress: boolean;
+  errorMessage: string;
+  cancel?: () => void;
+  close?: () => void;
+};
 
-export const addCapacityModel = createModalLauncher(AddCapacityModel);
+export const addCapacityModal = createModalLauncher(AddCapacityModal);
+
