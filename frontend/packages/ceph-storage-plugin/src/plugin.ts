@@ -7,6 +7,7 @@ import {
   ModelDefinition,
   Plugin,
   DashboardsOverviewQuery,
+  ClusterServiceVersionAction,
 } from '@console/plugin-sdk';
 import { GridPosition } from '@console/internal/components/dashboard';
 import { OverviewQuery } from '@console/internal/components/dashboards-page/overview-dashboard/queries';
@@ -17,6 +18,7 @@ import {
   STORAGE_HEALTH_QUERIES,
 } from './constants/queries';
 import { getCephHealthState } from './components/dashboard-page/storage-dashboard/health-card/utils';
+import { AddCapacityModel } from './components/modals/index';
 
 type ConsumedExtensions =
   | ModelFeatureFlag
@@ -24,9 +26,13 @@ type ConsumedExtensions =
   | DashboardsTab
   | DashboardsCard
   | DashboardsOverviewHealthPrometheusSubsystem
-  | DashboardsOverviewQuery;
+  | DashboardsOverviewQuery
+  | ClusterServiceVersionAction;
 
 const CEPH_FLAG = 'CEPH';
+
+window.SERVER_FLAGS.prometheusBaseURL =
+  'https://prometheus-k8s-openshift-monitoring.apps.5aug.devcluster.openshift.com';
 
 const plugin: Plugin<ConsumedExtensions> = [
   {
@@ -162,6 +168,14 @@ const plugin: Plugin<ConsumedExtensions> = [
     properties: {
       queryKey: OverviewQuery.STORAGE_UTILIZATION,
       query: CAPACITY_USAGE_QUERIES[StorageDashboardQuery.CEPH_CAPACITY_USED],
+    },
+  },
+  {
+    type: 'ClusterServiceVersion/Action',
+    properties: {
+      kind: 'StorageCluster',
+      label: 'Add Capacity',
+      callback: (kind, obj) => () => AddCapacityModel({kind}),//console.log(`open modal for ${kind} ${obj.kind}`)
     },
   },
 ];

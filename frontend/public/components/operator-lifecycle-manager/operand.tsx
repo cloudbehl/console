@@ -20,38 +20,50 @@ import { apiVersionForReference, kindForReference, K8sResourceKind, OwnerReferen
 import { ClusterServiceVersionModel } from '../../models';
 import { deleteModal } from '../modals';
 import { RootState } from '../../redux';
+import * as plugins from '../../plugins';
 
 const csvName = () => location.pathname.split('/').find((part, i, allParts) => allParts[i - 1] === referenceForModel(ClusterServiceVersionModel) || allParts[i - 1] === ClusterServiceVersionModel.plural);
 
-const actions = [
-  (kind, obj) => ({
-    label: `Edit ${kind.label}`,
-    href: `/k8s/ns/${obj.metadata.namespace}/${ClusterServiceVersionModel.plural}/${csvName()}/${referenceFor(obj)}/${obj.metadata.name}/yaml`,
-    accessReview: {
-      group: kind.apiGroup,
-      resource: kind.plural,
-      name: obj.metadata.name,
-      namespace: obj.metadata.namespace,
-      verb: 'update',
-    },
-  }),
-  (kind, obj) => ({
-    label: `Delete ${kind.label}`,
-    callback: () => deleteModal({
-      kind,
-      resource: obj,
-      namespace: obj.metadata.namespace,
-      redirectTo: `/k8s/ns/${obj.metadata.namespace}/${ClusterServiceVersionModel.plural}/${csvName()}/${referenceFor(obj)}`,
+const getActions = (ob: K8sResourceKind) => {
+  const actions = plugins.registry.getClusterServiceVersionActions().filter(action =>
+    action.properties.kind === ob.kind
+  );
+  const pluginActions = actions.map(action => (kind, obj) => ({
+    label: action.properties.label,
+    callback: action.properties.callback(kind, obj),
+  }));
+  return [
+    ...pluginActions,
+    (kind, obj) => ({
+      label: `Edit ${kind.label}`,
+      href: `/k8s/ns/${obj.metadata.namespace}/${ClusterServiceVersionModel.plural}/${csvName()}/${referenceFor(obj)}/${obj.metadata.name}/yaml`,
+      accessReview: {
+        group: kind.apiGroup,
+        resource: kind.plural,
+        name: obj.metadata.name,
+        namespace: obj.metadata.namespace,
+        verb: 'update',
+      },
     }),
-    accessReview: {
-      group: kind.apiGroup,
-      resource: kind.plural,
-      name: obj.metadata.name,
-      namespace: obj.metadata.namespace,
-      verb: 'delete',
-    },
-  }),
-] as KebabAction[];
+
+    (kind, obj) => ({
+      label: `Delete ${kind.label}`,
+      callback: () => deleteModal({
+        kind,
+        resource: obj,
+        namespace: obj.metadata.namespace,
+        redirectTo: `/k8s/ns/${obj.metadata.namespace}/${ClusterServiceVersionModel.plural}/${csvName()}/${referenceFor(obj)}`,
+      }),
+      accessReview: {
+        group: kind.apiGroup,
+        resource: kind.plural,
+        name: obj.metadata.name,
+        namespace: obj.metadata.namespace,
+        verb: 'delete',
+      },
+    }),
+  ] as KebabAction[];
+};
 
 const tableColumnClasses = [
   classNames('col-lg-2', 'col-md-3', 'col-sm-4', 'col-xs-6'),
@@ -90,7 +102,7 @@ export const OperandTableHeader = () => {
 };
 
 export const OperandLink: React.SFC<OperandLinkProps> = (props) => {
-  const {namespace, name} = props.obj.metadata;
+  const { namespace, name } = props.obj.metadata;
 
   return <span className="co-resource-item">
     <ResourceIcon kind={referenceFor(props.obj)} />
@@ -98,7 +110,7 @@ export const OperandLink: React.SFC<OperandLinkProps> = (props) => {
   </span>;
 };
 
-export const OperandTableRow: React.FC<OperandTableRowProps> = ({obj, index, key, style}) => {
+export const OperandTableRow: React.FC<OperandTableRowProps> = ({ obj, index, key, style }) => {
   const status = _.get(obj.status, 'phase');
   return (
     <TableRow id={obj.metadata.uid} index={index} trKey={key} style={style}>
@@ -124,7 +136,7 @@ export const OperandTableRow: React.FC<OperandTableRowProps> = ({obj, index, key
         <Timestamp timestamp={obj.metadata.creationTimestamp} />
       </TableData>
       <TableData className={tableColumnClasses[6]}>
-        <ResourceKebab actions={actions} kind={referenceFor(obj)} resource={obj} />
+        <ResourceKebab actions={getActions(obj)} kind={referenceFor(obj)} resource={obj} />
       </TableData>
     </TableRow>
   );
@@ -153,29 +165,29 @@ export const OperandList: React.SFC<OperandListProps> = (props) => {
     virtualize />;
 };
 
-const inFlightStateToProps = ({k8s}: RootState) => ({inFlight: k8s.getIn(['RESOURCES', 'inFlight'])});
+const inFlightStateToProps = ({ k8s }: RootState) => ({ inFlight: k8s.getIn(['RESOURCES', 'inFlight']) });
 
 export const ProvidedAPIsPage = connect(inFlightStateToProps)(
   (props: ProvidedAPIsPageProps) => {
-    const {obj} = props;
-    const {owned = []} = obj.spec.customresourcedefinitions;
-    const firehoseResources = owned.map((desc) => ({kind: referenceForProvidedAPI(desc), namespaced: true, prop: desc.kind}));
+    const { obj } = props;
+    const { owned = [] } = obj.spec.customresourcedefinitions;
+    const firehoseResources = owned.map((desc) => ({ kind: referenceForProvidedAPI(desc), namespaced: true, prop: desc.kind }));
 
     const EmptyMsg = () => <MsgBox title="No Provided APIs Defined" detail="This application was not properly installed or configured." />;
-    const createLink = (name: string) => `/k8s/ns/${obj.metadata.namespace}/${ClusterServiceVersionModel.plural}/${obj.metadata.name}/${referenceForProvidedAPI(_.find(owned, {name}))}/~new`;
+    const createLink = (name: string) => `/k8s/ns/${obj.metadata.namespace}/${ClusterServiceVersionModel.plural}/${obj.metadata.name}/${referenceForProvidedAPI(_.find(owned, { name }))}/~new`;
     const createProps = owned.length > 1
-      ? {items: owned.reduce((acc, crd) => ({...acc, [crd.name]: crd.displayName}), {}), createLink}
-      : {to: owned.length === 1 ? createLink(owned[0].name) : null};
+      ? { items: owned.reduce((acc, crd) => ({ ...acc, [crd.name]: crd.displayName }), {}), createLink }
+      : { to: owned.length === 1 ? createLink(owned[0].name) : null };
 
-    const owners = (ownerRefs: OwnerReference[], items: K8sResourceKind[]) => ownerRefs.filter(({uid}) => items.filter(({metadata}) => metadata.uid === uid).length > 0);
-    const flatten = (resources: {[kind: string]: {data: K8sResourceKind[]}}) => _.flatMap(resources, (resource) => _.map(resource.data, item => item))
-      .filter(({kind, metadata}, i, allResources) => owned.filter(item => item.kind === kind).length > 0 || owners(metadata.ownerReferences || [], allResources).length > 0);
+    const owners = (ownerRefs: OwnerReference[], items: K8sResourceKind[]) => ownerRefs.filter(({ uid }) => items.filter(({ metadata }) => metadata.uid === uid).length > 0);
+    const flatten = (resources: { [kind: string]: { data: K8sResourceKind[] } }) => _.flatMap(resources, (resource) => _.map(resource.data, item => item))
+      .filter(({ kind, metadata }, i, allResources) => owned.filter(item => item.kind === kind).length > 0 || owners(metadata.ownerReferences || [], allResources).length > 0);
 
     const rowFilters = [{
       type: 'clusterserviceversion-resource-kind',
-      selected: firehoseResources.map(({kind}) => kindForReference(kind)),
-      reducer: ({kind}) => kind,
-      items: firehoseResources.map(({kind}) => ({id: kindForReference(kind), title: kindForReference(kind)})),
+      selected: firehoseResources.map(({ kind }) => kindForReference(kind)),
+      reducer: ({ kind }) => kind,
+      items: firehoseResources.map(({ kind }) => ({ id: kindForReference(kind), title: kindForReference(kind) })),
     }];
 
     if (props.inFlight) {
@@ -200,7 +212,7 @@ export const ProvidedAPIsPage = connect(inFlightStateToProps)(
 );
 
 export const ProvidedAPIPage = connectToModel((props: ProvidedAPIPageProps) => {
-  const {namespace, kind, kindsInFlight, kindObj, csv} = props;
+  const { namespace, kind, kindsInFlight, kindObj, csv } = props;
 
   if (!kindObj) {
     return kindsInFlight
@@ -212,7 +224,7 @@ export const ProvidedAPIPage = connectToModel((props: ProvidedAPIPageProps) => {
     kind={kind}
     ListComponent={OperandList}
     canCreate={_.get(kindObj, 'verbs', [] as string[]).some(v => v === 'create')}
-    createProps={{to: `/k8s/ns/${csv.metadata.namespace}/${ClusterServiceVersionModel.plural}/${csv.metadata.name}/${kind}/~new`}}
+    createProps={{ to: `/k8s/ns/${csv.metadata.namespace}/${ClusterServiceVersionModel.plural}/${csv.metadata.name}/${kind}/~new` }}
     namespace={_.get(kindObj, 'namespaced') ? namespace : null} />;
 });
 
@@ -229,11 +241,11 @@ export const OperandDetails = connectToModel((props: OperandDetailsProps) => {
     });
   };
 
-  const blockValue = (descriptor: Descriptor, block: {[key: string]: any}) => !_.isEmpty(descriptor)
+  const blockValue = (descriptor: Descriptor, block: { [key: string]: any }) => !_.isEmpty(descriptor)
     ? _.get(block, descriptor.path, descriptor.value)
     : undefined;
 
-  const {kind, metadata, spec, status} = props.obj;
+  const { kind, metadata, spec, status } = props.obj;
 
   // Find the matching CRD spec for the kind of this resource in the CSV.
   const ownedDefinitions = _.get(props.clusterServiceVersion, 'spec.customresourcedefinitions.owned', []);
@@ -241,7 +253,7 @@ export const OperandDetails = connectToModel((props: OperandDetailsProps) => {
   const thisDefinition = _.find(ownedDefinitions.concat(reqDefinitions), (def) => def.name.split('.')[0] === props.kindObj.plural);
   const statusDescriptors = _.get<Descriptor[]>(thisDefinition, 'statusDescriptors', []);
   const specDescriptors = _.get<Descriptor[]>(thisDefinition, 'specDescriptors', []);
-  const currentStatus = _.find(statusDescriptors, {displayName: 'Status'});
+  const currentStatus = _.find(statusDescriptors, { displayName: 'Status' });
   const primaryDescriptors = statusDescriptors.filter(descriptor => isMainDescriptor(descriptor));
 
   const header = <h2 className="co-section-heading">{`${thisDefinition ? thisDefinition.displayName : kind} Overview`}</h2>;
@@ -262,19 +274,19 @@ export const OperandDetails = connectToModel((props: OperandDetailsProps) => {
       <div className="col-xs-6">
         <ResourceSummary resource={props.obj} />
       </div>
-      { currentStatus &&
-      <div className="col-xs-6" key={currentStatus.path}>
-        <StatusDescriptor namespace={metadata.namespace} obj={props.obj} model={props.kindObj} descriptor={currentStatus} value={blockValue(currentStatus, status)} />
-      </div>
+      {currentStatus &&
+        <div className="col-xs-6" key={currentStatus.path}>
+          <StatusDescriptor namespace={metadata.namespace} obj={props.obj} model={props.kindObj} descriptor={currentStatus} value={blockValue(currentStatus, status)} />
+        </div>
       }
 
-      { specDescriptors.map((specDescriptor: Descriptor, i) =>
+      {specDescriptors.map((specDescriptor: Descriptor, i) =>
         <div key={i} className="col-xs-6">
           <SpecDescriptor namespace={metadata.namespace} obj={props.obj} model={props.kindObj} value={blockValue(specDescriptor, spec)} descriptor={specDescriptor} />
         </div>)
       }
 
-      { statusDescriptors.filter(function(descriptor) {
+      {statusDescriptors.filter(function(descriptor) {
         return !isMainDescriptor(descriptor) && descriptor.displayName !== 'Status';
       }).map((statusDescriptor: Descriptor) => {
         const statusValue = blockValue(statusDescriptor, status);
@@ -283,12 +295,12 @@ export const OperandDetails = connectToModel((props: OperandDetailsProps) => {
             <StatusDescriptor namespace={metadata.namespace} obj={props.obj} model={props.kindObj} descriptor={statusDescriptor} value={statusValue} />
           </div>
         );
-      }) }
+      })}
     </div>
   </div>;
 
   return <div className="co-operand-details co-m-pane">
-    { _.isEmpty(primaryDescriptors) ? (
+    {_.isEmpty(primaryDescriptors) ? (
       <div className="co-m-pane__body">
         {header}
         {details}
@@ -310,18 +322,18 @@ export const OperandDetails = connectToModel((props: OperandDetailsProps) => {
 export const OperandDetailsPage: React.SFC<OperandDetailsPageProps> = (props) => <DetailsPage
   {...props}
   resources={[
-    {kind: referenceForModel(ClusterServiceVersionModel), name: props.match.params.appName, namespace: props.namespace, isList: false, prop: 'csv'},
+    { kind: referenceForModel(ClusterServiceVersionModel), name: props.match.params.appName, namespace: props.namespace, isList: false, prop: 'csv' },
   ]}
-  menuActions={actions}
+  menuActions={getActions(props.kindObj)}
   breadcrumbsFor={() => [
-    {name: 'Installed Operators', path: `/k8s/ns/${props.match.params.ns}/${ClusterServiceVersionModel.plural}`},
-    {name: props.match.params.appName, path: props.match.url.slice(0, props.match.url.lastIndexOf('/'))},
-    {name: `${kindForReference(props.kind)} Details`, path: `${props.match.url}`},
+    { name: 'Installed Operators', path: `/k8s/ns/${props.match.params.ns}/${ClusterServiceVersionModel.plural}` },
+    { name: props.match.params.appName, path: props.match.url.slice(0, props.match.url.lastIndexOf('/')) },
+    { name: `${kindForReference(props.kind)} Details`, path: `${props.match.url}` },
   ]}
   pages={[
     navFactory.details((detailsProps) => <OperandDetails {...detailsProps} clusterServiceVersion={detailsProps.csv} appName={props.match.params.appName} />),
     navFactory.editYaml(),
-    {name: 'Resources', href: 'resources', component: (resourcesProps) => <Resources {...resourcesProps} clusterServiceVersion={resourcesProps.csv} />},
+    { name: 'Resources', href: 'resources', component: (resourcesProps) => <Resources {...resourcesProps} clusterServiceVersion={resourcesProps.csv} /> },
   ]}
 />;
 
@@ -329,7 +341,7 @@ export type OperandListProps = {
   loaded: boolean;
   kinds?: GroupVersionKind[];
   data: K8sResourceKind[];
-  filters: {[key: string]: any};
+  filters: { [key: string]: any };
   reduxID?: string;
   reduxIDs?: string[];
   rowSplitter?: any;
@@ -372,11 +384,11 @@ export type OperandDetailsPageProps = {
 };
 
 export type OperandesourceDetailsProps = {
-  csv?: {data: ClusterServiceVersionKind};
+  csv?: { data: ClusterServiceVersionKind };
   kind: GroupVersionKind;
   name: string;
   namespace: string;
-  match: match<{appName: string}>;
+  match: match<{ appName: string }>;
 };
 
 export type OperandLinkProps = {
