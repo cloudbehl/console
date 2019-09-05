@@ -267,57 +267,96 @@ export class StorageClassForm_ extends React.Component<StorageClassFormProps, St
     },
     cephRbd: {
       title: 'Ceph RBD',
-      provisioner: 'kubernetes.io/rbd',
-      documentationLink: 'https://kubernetes.io/docs/concepts/storage/storage-classes/#ceph-rbd',
+      provisioner: 'rbd.csi.ceph.com',
+      documentationLink: 'https://rook.github.io/docs/rook/master/ceph-block.html',
       parameters: {
-        monitors: {
-          name: 'Monitors',
+        clusterID: {
+          name: 'Cluster ID',
+          hintText: 'Cluster ID is the namespace where Ceph is deployed.',
           required: true,
-          hintText: 'Monitors',
-        },
-        adminId: {
-          name: 'Admin Client ID',
-          hintText: 'Admin Client ID',
-        },
-        adminSecretName: {
-          name: 'Admin Secret Name',
-          required: true,
-          hintText: 'Admin Secret Name',
-        },
-        adminSecretNamespace: {
-          name: 'Admin Secret Namespace',
-          hintText: 'Admin Secret Namespace',
         },
         pool: {
           name: 'Pool',
-          hintText: 'Pool',
-        },
-        userId: {
-          name: 'User Client ID',
-          hintText: 'Ceph client ID used to map the RBD image',
-        },
-        userSecretName: {
-          name: 'User Secret Name',
+          hintText: 'Ceph pool into which the RBD image shall be created',
           required: true,
-          hintText: 'User Secret Name',
-        },
-        userSecretNamespace: {
-          name: 'User Secret Namespace',
-          hintText: 'User Secret Namespace',
-        },
-        fsType: {
-          name: 'Filesystem Type',
-          hintText: 'Filesystem Type',
         },
         imageFormat: {
           name: 'Image Format',
-          values: {1: '1', 2: '2'},
-          hintText: 'Select Image Format',
+          values: { 2: '2' },
+          hintText: 'Ceph RBD image format.',
+          required: true,
         },
         imageFeatures: {
           name: 'Image Features',
-          hintText: 'Image Features',
-          visible: (params) => _.get(params, 'imageFormat.value') === '2',
+          values: { 'layering': 'layering' },
+          hintText: 'Ceph RBD image features.',
+          required: true,
+        },
+        'csi.storage.k8s.io/provisioner-secret-name': {
+          name: 'Provisioner Secret Name',
+          values: { 'rook-ceph-csi': 'rook-ceph-csi' },
+          required: true,
+        },
+        'csi.storage.k8s.io/provisioner-secret-namespace': {
+          name: 'Provisioner Secret Namespace',
+          hintText: 'Provisioner Secret Namespace is the namespace where Ceph is deployed.',
+          required: true,
+        },
+        'csi.storage.k8s.io/node-stage-secret-name': {
+          name: 'Node Stage Secret Name',
+          values: { 'rook-ceph-csi': 'rook-ceph-csi' },
+          required: true,
+        },
+        'csi.storage.k8s.io/node-stage-secret-namespace': {
+          name: 'Node Stage Secret Namespace',
+          hintText: 'Node Stage Secret Namespace is the namespace where Ceph is deployed.',
+          required: true,
+        },
+        fsName: {
+          name: 'Filesystem Type',
+          hintText: 'Ceph RBD filesystem type. Default set to ext4.',
+        },
+      },
+    },
+    cephFs: {
+      title: 'Ceph FS',
+      provisioner: 'cephfs.csi.ceph.com',
+      documentationLink: 'https://rook.github.io/docs/rook/master/ceph-filesystem.html',
+      parameters: {
+        clusterID: {
+          name: 'Cluster ID',
+          hintText: 'Cluster ID is the namespace where Ceph is deployed.',
+          required: true,
+        },
+        fsName: {
+          name: 'Filesystem Name',
+          hintText: 'CephFS filesystem name into which the volume shall be created',
+          required: true,
+        },
+        pool: {
+          name: 'Pool',
+          hintText: 'Ceph pool into which the volume shall be created',
+          required: true,
+        },
+        'csi.storage.k8s.io/provisioner-secret-name': {
+          name: 'Provisioner Secret Name',
+          values: { 'rook-ceph-csi': 'rook-ceph-csi' },
+          required: true,
+        },
+        'csi.storage.k8s.io/provisioner-secret-namespace': {
+          name: 'Provisioner Secret Namespace',
+          hintText: 'Provisioner Secret Namespace is the namespace where Ceph is deployed.',
+          required: true,
+        },
+        'csi.storage.k8s.io/node-stage-secret-name': {
+          name: 'Node Stage Secret Name',
+          value: { 'rook-ceph-csi': 'rook-ceph-csi' },
+          required: true,
+        },
+        'csi.storage.k8s.io/node-stage-secret-namespace': {
+          name: 'Node Stage Secret Namespace',
+          hintText: 'Node Stage Secret Namespace is the namespace where Ceph is deployed.',
+          required: true,
         },
       },
     },
