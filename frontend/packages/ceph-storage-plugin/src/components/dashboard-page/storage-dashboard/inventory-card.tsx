@@ -22,7 +22,7 @@ import {
   StorageClassModel,
 } from '@console/internal/models';
 import { ResourceInventoryItem } from '@console/shared/src/components/dashboard/inventory-card/InventoryItem';
-import { getCephNodes, getCephPVs, getCephPVCs, getCephSC } from '../../../selectors';
+import { getCephNodes, getCephPVs, getCephPVCs, getCephSC, cephStorageLabel } from '../../../selectors';
 
 const k8sResources: FirehoseResource[] = [
   {
@@ -74,6 +74,7 @@ const InventoryCard: React.FC<DashboardItemProps> = ({
   const scData = _.get(resources.sc, 'data', []) as K8sResourceKind[];
   const filteredCephSC = getCephSC(scData);
   const filteredSCNames = filteredCephSC.map((sc) => _.get(sc, 'metadata.name'));
+  const ocsNodesHref = `/search?kind=${NodeModel.kind}&q=${cephStorageLabel}`;
 
   return (
     <DashboardCard>
@@ -87,7 +88,7 @@ const InventoryCard: React.FC<DashboardItemProps> = ({
           kind={NodeModel}
           resources={getCephNodes(nodesData)}
           mapper={getNodeStatusGroups}
-          showLink={false}
+          basePath={ocsNodesHref}
         />
         <ResourceInventoryItem
           isLoading={!pvcsLoaded}
