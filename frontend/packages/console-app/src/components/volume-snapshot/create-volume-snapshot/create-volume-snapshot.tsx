@@ -229,7 +229,7 @@ const CreateSnapshotForm = withHandlePromise<SnapshotResourceProps>((props) => {
             <PVCDropdown
               namespace={namespace}
               onChange={handlePVCName}
-              id="claimName"
+              id="pvcDropdown"
               selectedKey={pvcName}
               desc={`Persistent Volume Claim in ${namespace} namespace`}
             />
@@ -256,7 +256,7 @@ const CreateSnapshotForm = withHandlePromise<SnapshotResourceProps>((props) => {
             </label>
             <SnapshotClassDropdown
               onChange={setSnapshotClassName}
-              id="claimName"
+              id="snapshotDropdown"
               selectedKey={snapshotClassName}
               pvcSC={pvcObj?.spec?.storageClassName}
             />

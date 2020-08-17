@@ -46,12 +46,12 @@ const Details: React.FC<DetailsProps> = ({ obj }) => {
           <dl className="co-m-pane__details">
             {size && (
               <>
-                <dt>Size</dt>
-                <dd>{sizeMetrics}</dd>
+                <dt data-test-selector="details-item-label__Size">Size</dt>
+                <dd data-test-selector="details-item-value__Size">{sizeMetrics}</dd>
               </>
             )}
-            <dt>Persistent Volume Claim</dt>
-            <dd>
+            <dt data-test-selector="details-item-label__PVC">Persistent Volume Claim</dt>
+            <dd data-test-selector="details-item-value__PVC">
               <ResourceLink
                 kind={PersistentVolumeClaimModel.kind}
                 name={pvcName}
@@ -60,8 +60,8 @@ const Details: React.FC<DetailsProps> = ({ obj }) => {
             </dd>
             {snapshotContent && (
               <>
-                <dt>Volume Snapshot Content</dt>
-                <dd>
+                <dt data-test-selector="details-item-label__VSC">Volume Snapshot Content</dt>
+                <dd data-test-selector="details-item-value__VSC">
                   <ResourceLink
                     kind={referenceForModel(VolumeSnapshotContentModel)}
                     name={snapshotContent}
@@ -69,8 +69,8 @@ const Details: React.FC<DetailsProps> = ({ obj }) => {
                 </dd>
               </>
             )}
-            <dt>Snapshot Class</dt>
-            <dd>
+            <dt data-test-selector="details-item-label__SC">Snapshot Class</dt>
+            <dd data-test-selector="details-item-value__SC">
               <ResourceLink
                 kind={referenceForModel(VolumeSnapshotClassModel)}
                 name={obj?.spec?.volumeSnapshotClassName}
